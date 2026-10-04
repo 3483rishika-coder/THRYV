@@ -1,0 +1,8 @@
+.venv/
+.git/
+__pycache__/
+*.db*
+artifacts/
+node_modules/
+worldmonitor/
+.env

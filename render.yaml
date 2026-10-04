@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: thryv
+    runtime: docker
+    plan: starter            # Semgrep needs more than the 512 MB free tier
+    healthCheckPath: /healthz
+    disk:
+      name: thryv-data
+      mountPath: /data
+      sizeGB: 2
+    envVars:
+      - key: THRYV_PASSWORD
+        sync: false          # you type it in the Render dashboard
+      - key: THRYV_ALLOWED_HOSTS
+        value: "*"            # safe: the whole site is behind THRYV_PASSWORD
+      - key: THRYV_LAB_HOSTS
+        sync: false          # hostname of YOUR deployed World Monitor copy, e.g. wm-lab.onrender.com
+      - key: THRYV_CLONE_URL
+        value: https://github.com/koala73/worldmonitor.git

@@ -1,0 +1,91 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>THRYV</title>
+<style>
+:root{--bg:#f6f5f1;--ink:#222;--mut:#666;--line:#d9d6cc;--acc:#1f4e5f;--bad:#a4281f}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,Segoe UI,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--acc);color:#fff;padding:12px 20px;display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+header b{font-size:20px;letter-spacing:.08em}header small{opacity:.85}
+nav{display:flex;gap:2px;padding:0 20px;background:#e9e6dc;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav button{border:0;background:none;padding:10px 14px;font:inherit;cursor:pointer}nav button.on{background:var(--bg);font-weight:600;border-bottom:2px solid var(--acc)}
+main{max-width:960px;margin:0 auto;padding:20px}
+.banner{background:#fbeceb;border:1px solid #e3b4b0;color:var(--bad);padding:8px 12px;margin-bottom:14px}
+label{display:block;margin:10px 0 3px;font-weight:600}.hint{color:var(--mut);font-weight:400;font-size:13px}
+input,select,textarea{width:100%;padding:7px 9px;border:1px solid #bdb9ab;background:#fff;font:inherit}textarea{min-height:64px}
+button.go{background:var(--acc);color:#fff;border:0;padding:9px 16px;margin:12px 6px 0 0;font:inherit;cursor:pointer}button.alt{background:#fff;color:var(--ink);border:1px solid #bdb9ab}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:180px}
+.card{background:#fff;border:1px solid var(--line);padding:12px 14px;margin:10px 0}
+.stat{display:flex;gap:10px;flex-wrap:wrap}.stat div{background:#fff;border:1px solid var(--line);padding:8px 14px;min-width:110px}.stat b{font-size:22px;display:block}
+.bar{display:flex;align-items:center;gap:8px;margin:3px 0}.bar i{display:block;height:12px;background:var(--acc)}
+table{border-collapse:collapse;width:100%;background:#fff}td,th{border-bottom:1px solid var(--line);padding:7px 8px;text-align:left;vertical-align:top}tr.f{cursor:pointer}tr.f:hover{background:#f0eee6}
+.chip{display:inline-block;padding:1px 8px;border:1px solid #bbb;font-size:12px;margin:0 4px 4px 0}.chip.done,.chip.confirmed,.chip.not_reproduced,.chip.na{background:#e2efe4}.chip.failed,.chip.reproduced{background:#f6dcd9}.chip.unavailable,.chip.inconclusive,.chip.suspected{background:#f7edcf}
+pre{background:#f1efe7;padding:8px;overflow:auto;white-space:pre-wrap;word-break:break-word;font-size:12.5px;max-height:260px}
+.chain button{margin:0 2px 6px 0;padding:6px 10px;border:1px solid #bdb9ab;background:#fff;cursor:pointer}.chain button.on{background:var(--acc);color:#fff}
+.err{color:var(--bad);margin-top:8px}.ok{color:#1c6b32}h2{margin:.2em 0 .4em;font-size:19px}.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:700px){.two{grid-template-columns:1fr}}
+.steps{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0}.steps div{flex:1;min-width:200px;background:#fff;border:1px solid var(--line);padding:10px 12px}.steps b{display:inline-block;width:24px;height:24px;line-height:24px;text-align:center;border-radius:50%;background:var(--acc);color:#fff;margin-right:8px}
+.life{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.life span{padding:4px 10px;border:1px solid #bbb;background:#f1efe7;color:var(--mut)}.life span.on{background:#e2efe4;color:var(--ink);border-color:#9bbf9f}
+button{transition:filter .15s}button.go:hover{filter:brightness(1.2)}
+</style>
+<header><b>THRYV</b><small>Threat Hunting, Risk &amp; Intelligence Validation</small></header>
+<nav id="nav"></nav><main id="m"></main>
+<script>
+const $=s=>document.querySelector(s),E=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const CATS=["Authentication and session","Authorization and access control","Input validation","API security","Client-side controls","Secure communication","Data storage and privacy"];
+let A=+localStorage.getItem("aid")||0,tab="setup",timer=null;
+async function api(p,o){let r;try{r=await fetch("/api"+p,o&&{method:o.method,headers:{"Content-Type":"application/json"},body:JSON.stringify(o.body)})}catch(e){throw Error("Cannot reach the THRYV server.")}
+ let j;try{j=await r.json()}catch(e){throw Error("Unexpected server response ("+r.status+").")}
+ if(!r.ok)throw Error(Array.isArray(j.detail)?j.detail.map(d=>(d.loc||[]).slice(-1)+": "+d.msg).join("; "):j.detail||"Request failed");return j}
+const msg=(id,t,good)=>{const e=$("#"+id);if(e){e.className=good?"ok":"err";e.textContent=t}};
+const TABS={setup:"1. Start",findings:"2. Findings",add:"3. Add finding",coverage:"4. Coverage",report:"5. Report & tools"};
+function show(t){tab=t;clearInterval(timer);$("#nav").innerHTML=Object.entries(TABS).map(([k,v])=>`<button class="${k==tab?"on":""}" onclick="show('${k}')">${v}</button>`).join("");({setup,findings,add,coverage,report})[t]()}
+function setup(){$("#m").innerHTML=`<div class="banner"><b>Local authorized instance only.</b> THRYV refuses anything except localhost or lab hosts you configured. It never touches production.</div>
+<h2>Start an assessment</h2><div class="steps"><div><b>1</b>Point THRYV at an app running on your own computer.</div><div><b>2</b>It runs safe checks and lists possible problems.</div><div><b>3</b>You confirm what is real, fix it, and test again.</div></div>
+<button class="go alt" style="margin:4px 0 0" onclick="demo()">No app handy? Use the built-in practice target</button><div id="e0"></div>
+<label>Assessment name</label><input id="n" value="World Monitor local lab">
+<label>Target URL <span class="hint">e.g. http://127.0.0.1:3000</span></label><input id="t" value="http://127.0.0.1:3000">
+<label>Repository folder <span class="hint">(optional, enables code and dependency scans)</span></label><input id="r" placeholder="/home/you/worldmonitor">
+<label>How deep?</label><select id="p"><option value="quick">Quick: safe web checks only</option><option value="standard" selected>Standard: + dependency audit + code scan</option><option value="deep">Deep: + secret scan</option></select>
+<label style="font-weight:400"><input type="checkbox" id="a" style="width:auto"> I confirm this is my own local instance and I am authorized to test it.</label>
+<button class="go" onclick="start()">Start scan</button><div id="e"></div><div id="prog"></div>`;if(A)prog()}
+async function start(){try{const j=await api("/assessments",{method:"POST",body:{name:$("#n").value,target:$("#t").value,repo:$("#r").value,profile:$("#p").value,authorized:$("#a").checked}});A=j.id;localStorage.setItem("aid",A);msg("e","",1);prog()}catch(e){msg("e",e.message)}}
+async function prog(){try{const a=await api("/assessments/"+A);$("#prog").innerHTML=`<div class="card"><b>${E(a.name)}</b> · ${E(a.target)} · ${E(a.status)}<br>Commit: ${E(a.commit_hash||"n/a")}<div style="margin-top:8px">${Object.entries(a.tools).map(([k,v])=>`<span class="chip ${v.state}" title="${E(v.detail||"")}">${E(k)}: ${E(v.state)}</span>`).join("")}</div><p class="hint">“unavailable” or “failed” never means clean. A missing tool is reported, not hidden.</p>${a.status=="finished"?'<button class="go" onclick="show(\'findings\')">See findings</button>':""}</div>`;
+ clearInterval(timer);if(a.status!="finished")timer=setInterval(prog,2000)}catch(e){}}
+async function findings(){if(!A)return $("#m").innerHTML="<p>Start an assessment first.</p>";const f=await api("/findings?aid="+A),c=k=>f.filter(x=>x.severity==k).length,mx=Math.max(1,...["critical","high","medium","low","info"].map(c));
+ $("#m").innerHTML=`<h2>Findings</h2><div class="stat"><div><b>${f.length}</b>total</div><div><b>${f.filter(x=>x.confidence=="confirmed").length}</b>confirmed</div><div><b>${f.filter(x=>x.confidence=="suspected").length}</b>need validation</div><div><b>${f.filter(x=>x.confidence=="informational").length}</b>hardening notes</div></div>
+ <div class="card">${["critical","high","medium","low","info"].map(k=>`<div class="bar"><span style="width:60px">${k}</span><i style="width:${c(k)/mx*300}px"></i>${c(k)}</div>`).join("")}</div>
+ <div class="card"><b>By area</b>${CATS.map(c=>{const n=f.filter(x=>x.category==c).length;return `<div class="bar"><span style="width:230px">${c}</span><i style="width:${n/Math.max(1,f.length)*200}px"></i>${n}</div>`}).join("")}<p class="hint">Fix tracking: ${f.filter(x=>x.retest=="not_reproduced").length} re-tested and fixed · ${f.filter(x=>x.retest=="reproduced").length} still reproducing · ${f.filter(x=>x.retest=="pending").length} not yet re-tested</p></div>
+ <select id="fl" onchange="fl()" style="width:auto"><option value="">All</option><option>confirmed</option><option>suspected</option><option>informational</option></select>
+ <table id="ft"><tr><th>ID</th><th>Title</th><th>Severity</th><th>Status</th><th>Priority</th><th>Retest</th></tr>${f.map(x=>`<tr class="f" data-c="${x.confidence}" onclick="detail(${x.id})"><td>${E(x.fid)}</td><td>${E(x.title)}<br><small>${E(x.component)} · ${E(x.owasp)}</small></td><td>${x.severity}${x.cvss_score?" · "+x.cvss_score:""}</td><td><span class="chip ${x.confidence}">${x.confidence}</span></td><td>${x.priority}/14</td><td>${x.retest}</td></tr>`).join("")}</table>`}
+const fl=()=>document.querySelectorAll("#ft tr.f").forEach(r=>r.style.display=!$("#fl").value||r.dataset.c==$("#fl").value?"":"none");
+async function detail(id){const f=await api("/findings/"+id),ck=f.check,last=f.retests.slice(-1)[0];
+ const curl=ck?`curl -s -i -X ${ck.method||"GET"} ${Object.entries(ck.headers||{}).map(([k,v])=>`-H "${k}: ${v}" `).join("")}"${f.target.replace(/\/$/,"")}${ck.path||"/"}"`:"";
+ const steps=[["Source / component",f.component+"\n"+f.description],["Tool / rule",f.source+" "+(f.tool_version||"")],["Endpoint & steps",f.steps],["Evidence",f.poc||"None yet"],["Business impact",f.business_impact],["Remediation",f.remediation+(f.fix_commit?"\nFix commit: "+f.fix_commit:"")+(f.fix_diff?"\n\n"+f.fix_diff:"")],["Retest",f.retests.map(r=>r.ts+" "+r.result).join("\n")||"Not retested yet"]];
+ $("#m").innerHTML=`<p><a href="#" onclick="show('findings');return false">← all findings</a></p><h2>${E(f.fid)} · ${E(f.title)}</h2><span class="chip ${f.confidence}">${f.confidence}</span><span class="chip">${f.severity}${f.cvss_score?" · CVSS "+f.cvss_score:""}</span><span class="chip ${f.retest}">retest: ${f.retest}</span>
+ <p class="hint">${E(f.priority_explained)} ${f.cvss_vector?"Vector: "+E(f.cvss_vector):""}</p><div class="card"><b>Progress of this finding</b><div class="life">${f.lifecycle.map(l=>`<span class="${l.done?"on":""}">${l.done?"✔ ":""}${l.step}</span>`).join("")}</div><p class="hint">Suggested OWASP category: ${E(f.owasp)}. Confirm it before you report.</p></div><div class="card chain"><b>Evidence chain</b> (click each step)<br>${steps.map((s,i)=>`<button class="${i?"":"on"}" onclick="stp(${i},this)">${s[0]}</button>`).join("")}<pre id="sp">${E(steps[0][1])}</pre></div>
+ ${ck?`<div class="card"><b>Replayable check</b><pre>${E(JSON.stringify(ck,null,1))}</pre><b>Rerun yourself</b><pre>${E(curl)}</pre><button class="go" onclick="rt(${f.id})">Replay now (retest)</button>${f.target.includes("/fixture")?'<button class="go alt" onclick="fxp()">Practice fix: patch the fixture</button><button class="go alt" onclick="fxr()">Undo patch</button>':""}<div id="e"></div></div>`:'<div class="card hint">Tool-detected finding: no replayable check. Validate manually, then add a confirmed finding with a check.</div>'}
+ ${last?`<h3>Before / after</h3><div class="two"><div><b>Before (original PoC)</b><pre>${E(f.poc)}</pre></div><div><b>After: ${last.result}${last.commit_hash?" @ "+E(last.commit_hash):""}</b><pre>${E(last.evidence)}</pre></div></div>`:""}
+ <div class="card"><b>Your validation decision</b><label>Status</label><select id="cf"><option>suspected</option><option>confirmed</option><option>informational</option></select><label>Note</label><textarea id="vn" placeholder="What did you check and what did you see?"></textarea>
+ <label>Fix commit hash <span class="hint">(branch with real patch)</span></label><input id="fc" value="${E(f.fix_commit)}"><label>Fix diff / description</label><textarea id="fd">${E(f.fix_diff)}</textarea><button class="go" onclick="sv(${f.id})">Save</button><div id="e2"></div><p class="hint">${E(f.validation)}</p></div>`;
+ steps.forEach(s=>{if(!String(s[1]).trim())s[1]="(nothing recorded yet)"});window._s=steps;$("#cf").value=f.confidence}
+function stp(i,b){document.querySelectorAll(".chain button").forEach(x=>x.classList.remove("on"));b.classList.add("on");$("#sp").textContent=_s[i][1]}
+async function rt(id){try{const r=await api("/findings/"+id+"/retest",{method:"POST",body:{}});await detail(id)}catch(e){msg("e",e.message)}}
+async function sv(id){try{await api("/findings/"+id,{method:"PATCH",body:{confidence:$("#cf").value,validation:$("#vn").value||null,fix_commit:$("#fc").value||null,fix_diff:$("#fd").value||null}});await detail(id)}catch(e){msg("e2",e.message)}}
+function add(){$("#m").innerHTML=`<h2>Add a validated finding</h2><p class="hint">Fields match the problem statement deliverables. Add a replayable check and THRYV will try to reproduce it automatically.</p>
+<label>Title</label><input id="a1"><label>Description</label><textarea id="a2"></textarea><label>Affected component</label><input id="a3" placeholder="api/rss-proxy.ts or GET /api/x">
+<div class="row"><div><label>Area</label><select id="a4">${CATS.map(c=>`<option>${c}</option>`)}</select></div><div><label>Severity <span class="hint">(ignored if CVSS given)</span></label><select id="a5"><option>low</option><option>medium</option><option>high</option><option>critical</option><option>info</option></select></div></div>
+<label>CVSS 3.1 vector <span class="hint">optional, e.g. CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N</span></label><input id="a6">
+<div class="row"><div><label>Exposure</label><select id="a7"><option value="1">1 · hard to reach</option><option value="2" selected>2 · reachable</option><option value="3">3 · public</option></select></div><div><label>Impact</label><select id="a8"><option value="1">1 · minor</option><option value="2" selected>2 · moderate</option><option value="3">3 · serious</option></select></div></div>
+<label>Steps to reproduce</label><textarea id="a9"></textarea><label>Proof of concept (redacted)</label><textarea id="b1"></textarea><label>Business impact</label><textarea id="b2"></textarea><label>Remediation</label><textarea id="b3"></textarea>
+<label>Replayable check <span class="hint">JSON, optional: {"method":"GET","path":"/api/x","assert":{"status":200,"body_contains":"..."}}</span></label><textarea id="b4"></textarea>
+<button class="go" onclick="sub()">Save finding</button><div id="e"></div>`}
+async function sub(){try{let ck=$("#b4").value.trim();ck=ck?JSON.parse(ck):null;const j=await api("/findings",{method:"POST",body:{aid:A,title:$("#a1").value,description:$("#a2").value,component:$("#a3").value,category:$("#a4").value,severity:$("#a5").value,cvss_vector:$("#a6").value,exposure:+$("#a7").value,impact:+$("#a8").value,steps:$("#a9").value,poc:$("#b1").value,business_impact:$("#b2").value,remediation:$("#b3").value,check_json:ck}});detail(j.id)}catch(e){msg("e",e instanceof SyntaxError?"Replayable check is not valid JSON.":e.message)}}
+async function coverage(){if(!A)return $("#m").innerHTML="<p>Start an assessment first.</p>";const c=await api("/coverage?aid="+A);
+ $("#m").innerHTML=`<h2>Scope coverage</h2><p class="hint">Computed from your findings. “Tested-passed” and “N/A” need a reason. A quiet scanner is not a pass.</p><table><tr><th>Area</th><th>State</th><th>Reason / note</th><th></th></tr>${c.map((r,i)=>`<tr><td>${E(r.row)}</td><td><select id="s${i}" ${r.state=="finding"?"disabled":""}><option value="not-tested">not tested</option><option value="tested-passed">tested, passed</option><option value="na">N/A</option>${r.state=="finding"?'<option value="finding">finding: '+E(r.findings.join(", "))+"</option>":""}</select></td><td><input id="c${i}" value="${E(r.note)}"></td><td><button class="go alt" style="margin:0" onclick="cv(${i})">Save</button></td></tr>`).join("")}</table><div id="e"></div>`;c.forEach((r,i)=>$("#s"+i).value=r.state);window._c=c}
+async function cv(i){try{await api("/coverage",{method:"PUT",body:{aid:A,row:_c[i].row,state:$("#s"+i).value,note:$("#c"+i).value}});msg("e","Saved.",1)}catch(e){msg("e",e.message)}}
+function report(){$("#m").innerHTML=`<h2>Report &amp; tools</h2><div class="card"><a href="/api/report/${A}" target="_blank">Open printable report</a> (use Print → Save as PDF)<br><a href="/api/sarif/${A}" target="_blank">Download SARIF</a><br><a href="/api/checks/${A}" target="_blank">Export replay checks (JSON)</a> for <code>python -m thryv replay checks.json</code></div>
+<div class="card"><button class="go alt" style="margin:0" onclick="lg()">Verify evidence ledger</button> <button class="go alt" style="margin:0" onclick="sc()">Run THRYV safe checks on itself</button><pre id="o">Results appear here.</pre></div>`}
+async function lg(){try{$("#o").textContent=JSON.stringify(await api("/ledger/verify"),null,1)}catch(e){$("#o").textContent=e.message}}
+async function sc(){try{const r=await api("/selfcheck",{method:"POST",body:{}});$("#o").textContent=r.length?"Observations:\n"+r.map(x=>"- "+x.title).join("\n"):"No observations on THRYV itself."}catch(e){$("#o").textContent=e.message}}
+async function demo(){try{const i=await api("/info");$("#t").value=i.fixture_url;$("#n").value="Practice fixture (not World Monitor)";$("#p").value="quick";$("#r").value="";msg("e0","Practice target filled in. Tick the box, then press Start scan.",1)}catch(e){msg("e0",e.message)}}
+async function fxp(){await fetch("/fixture/_patch",{method:"POST"});msg("e","Fixture patched. Now press Replay now.",1)}
+async function fxr(){await fetch("/fixture/_reset",{method:"POST"});msg("e","Patch removed.",1)}
+show("setup")
+</script></html>
