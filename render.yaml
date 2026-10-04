@@ -15,5 +15,3 @@ services:
         value: /tmp/thryv.db
       - key: THRYV_ARTIFACTS
         value: /tmp/artifacts
-      - key: THRYV_PASSWORD
-        sync: false
