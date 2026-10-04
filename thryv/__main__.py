@@ -9,7 +9,7 @@ def main(a):
         return 1 if bad else 0
     if a[:1] == ["serve"] or not a:
         import os
-        if os.environ.get("THRYV_HOST", "127.0.0.1") not in ("127.0.0.1", "localhost") and not os.environ.get("THRYV_PASSWORD"):
+        if os.environ.get("THRYV_HOST", "127.0.0.1") not in ("127.0.0.1", "localhost") and not os.environ.get("THRYV_PASSWORD") and os.environ.get("THRYV_ALLOW_OPEN") != "1":
             print("Refusing to listen publicly without THRYV_PASSWORD set."); return 2
         import uvicorn; uvicorn.run("thryv.api:app", host=os.environ.get("THRYV_HOST", "127.0.0.1"), port=int(os.environ.get("PORT") or os.environ.get("THRYV_PORT") or 8000)); return 0
     print("usage: python -m thryv [serve | replay checks.json --target URL]"); return 2
